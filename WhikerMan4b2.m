@@ -27,7 +27,7 @@ function varargout = WhikerMan4b2(varargin)
 
 % Edit the above text to modify the response to help WhikerMan2l
 
-% Last Modified by GUIDE v2.5 05-Sep-2016 14:54:34
+% Last Modified by GUIDE v2.5 17-Oct-2016 11:29:25
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -125,10 +125,10 @@ handles.mastervideo_selected = false;   % mastervideo is the horizontal view
 % specify folders in next 2 lines:
 % handles.dir.h = 'X:\Texture_project\2016_04_07\';
 % handles.dir.v = 'X:\Texture_project\2016_04_07_cam2\';
-handles.dir.h = 'C:\Users\Andrea\Documents\MATLAB\Videos\2016_08_12\';
-%handles.dir.h = 'Z:\Pole\Video data\2016_08_12\TT3\';
-handles.dir.v = 'C:\Users\Andrea\Documents\MATLAB\Videos\2016_08_12_cam2\';
-%handles.dir.v = 'Z:\Pole\Video data\2016_08_12_cam2\TT3\';
+handles.dir.h = 'C:\Users\Andrea\Documents\MATLAB\Videos\2016_08_24\';
+%handles.dir.h = 'Z:\Pole\Video data\2016_08_19\TT3\';
+handles.dir.v = 'C:\Users\Andrea\Documents\MATLAB\Videos\2016_08_24_cam2\';
+%handles.dir.v = 'Z:\Pole\Video data\2016_08_19_cam2\TT3\';
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 d = handles.dir.h;
@@ -3337,6 +3337,11 @@ function pushbutton_plot_kinematics_Callback(hObject, eventdata, handles)
 % nframes = size(rall,1);
 frames = 1:handles.video.h.nframes;
 
+file2name='C:\Users\Andrea\Documents\MATLAB\Videos\2016_08_24\TT3_20160824_115337original.tr4';
+%file2name='';
+if ~strcmp(file2name,'')
+    file2=load(file2name,'-mat');
+end
 % D = size(rall,3);
 
 % idx
@@ -3392,6 +3397,8 @@ for w = 1:handles.Nwhiskers
     curv3 = zeros(1,length(handles.whisker(w).tracked));
     np = zeros(2,length(handles.whisker(w).tracked));
     r3 = squeeze(handles.whisker(w).r3all);
+    
+    
     for i = 1:length(idx)
         fr = idx(i);
         r = squeeze(handles.whisker(w).r3all(fr,:,:));
@@ -3413,27 +3420,81 @@ for w = 1:handles.Nwhiskers
     end
     clear i fr tv cv
     
+    
     azimuth(idx) = theta(3,idx);
     elevation(idx) = theta(1,idx);
     twist(idx) = atan2(-np(2,idx),np(1,idx))*(180/pi);
+    
+    if ~strcmp(file2name,'')
+    %%Definir los elementos para el archivo anterior
+    theta2 = zeros(3,length(file2.whisker(w).tracked));
+    azimuth2 = zeros(1,length(file2.whisker(w).tracked));
+    elevation2 = zeros(1,length(file2.whisker(w).tracked));
+    twist2 = zeros(1,length(file2.whisker(w).tracked));
+    curv_hc2 = zeros(3,length(file2.whisker(w).tracked));  % head-centred
+    curv_fc2 = zeros(3,length(file2.whisker(w).tracked));  % follicle-centred - later
+    curv32 = zeros(1,length(file2.whisker(w).tracked));
+    np2 = zeros(2,length(file2.whisker(w).tracked));
+    r32 = squeeze(file2.whisker(w).r3all);
+    
+    for i = 1:length(idx)
+        fr = idx(i);
+        r = squeeze(file2.whisker(w).r3all(fr,:,:));
+        theta2(:,fr) = base_angle3(r,0);
+        curv_hc2(1,fr) = curvature(r([2 3],:),0);
+        curv_hc2(2,fr) = curvature(r([1 3],:),0);
+        curv_hc2(3,fr) = curvature(r([1 2],:),0);
+        curv32(fr) = curvature3(r,0);
+        tv = bezierdtval(r,0);  % tangent to whisker at base
+        tv = tv/norm(tv);
+        cv = bezierdt2val(r,0); % 2nd derivative to whisker at base
+        NPO = eye(3)-tv*tv'; % projection operator, onto plane normal to 'tv'
+        %         xpr = NPO*[1 0 0]'; % projection of x axis
+        %         zpr = NPO*[0 0 1]'; % projection of z axis
+        np2(1,fr) = [1 0 0]*NPO*cv;   % projection of cv onto NP, projected onto x axis
+        np2(2,fr) = [0 0 1]*NPO*cv;   % projection of cv onto NP, projected onto z axis
+        %         curv(1,fr) = cv'*xpr; % projection of 2nd deriv vector
+        %         curv(2,fr) = cv'*zpr;
+    end
+    clear i fr tv cv
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%calculo del azimuth elevation y twist
+    azimuth2(idx) = theta2(3,idx);
+    elevation2(idx) = theta2(1,idx);
+    twist2(idx) = atan2(-np2(2,idx),np2(1,idx))*(180/pi);
+    wmod2=wmod+1;
+    else
+    azimuth2(idx) = azimuth(idx);
+    elevation2(idx) = elevation(idx);
+    twist2(idx) = twist(idx);
+    curv_hc2=curv_hc;
+    curv32=curv3;
+    wmod2=wmod;
+    end
+    
 
     figure(f1)
     h1(1) = subplot(spr,2,1); hold on
     plot(frames(idx),azimuth(idx),handles.colours{wmod}), ylabel('azimuth')
+    plot(frames(idx),azimuth2(idx),handles.colours{wmod2}),
     title('azimuth: 90deg is normal to ant-post axis; >90deg for whisker protracted')
     h1(2) = subplot(spr,2,3); hold on
     plot(frames(idx),elevation(idx),handles.colours{wmod}), ylabel('elevation')
+    plot(frames(idx),elevation2(idx),handles.colours{wmod2})
     title('elevation: 90deg is horizontal; >90deg for whisker tip oriented up')
     h1(3) = subplot(spr,2,5); hold on
     plot(frames(idx),twist(idx),handles.colours{wmod}), ylabel('twist')
+    plot(frames(idx),twist2(idx),handles.colours{wmod2})
     title('twist: 90deg is concave down; <90deg for concave posterior')
-
+    
     h2(1) = subplot(spr,2,2); hold on
     plot(frames(idx),curv_hc(1,idx),handles.colours{wmod}), ylabel('kappa coronal')
+    plot(frames(idx),curv_hc2(1,idx),handles.colours{wmod2})
     h2(2) = subplot(spr,2,4); hold on
     plot(frames(idx),curv_hc(3,idx),handles.colours{wmod}), ylabel('kappa horizontal')
+    plot(frames(idx),curv_hc2(3,idx),handles.colours{wmod2})
     h2(3) = subplot(spr,2,6); hold on
     plot(frames(idx),curv3(idx),handles.colours{wmod}), ylabel('kappa3')
+    plot(frames(idx),curv32(idx),handles.colours{wmod2})
     
     %     h(3) = subplot(spr,1,3); hold on
     %     % plot(frames(idx),medfilt1(kappa(idx,:),5))
@@ -3459,9 +3520,14 @@ for w = 1:handles.Nwhiskers
     linkaxes(h2,'x')
     linkaxes(h1,'x')
     
+    if ~strcmp(file2name,'')
+    legend('New','Original','Location','southoutside')
+    end
+    
     figure(f2)
     subplot(2,2,1);    hold on
     plot(azimuth(idx),elevation(idx),handles.colours{wmod})
+    plot(azimuth2(idx),elevation2(idx),handles.colours{wmod2})
     xlabel('azimuth'), ylabel('elevation')
     title('tangent direction')
     axis square
@@ -3483,6 +3549,7 @@ for w = 1:handles.Nwhiskers
 %     ylim(max(abs(a(3:4)))*[-1 1])
 %     title('curvature direction')
     plot(azimuth(idx),twist(idx),handles.colours{wmod})
+     plot(azimuth2(idx),twist2(idx),handles.colours{wmod2})
     xlabel('azimuth'), ylabel('twist')
     title('tangent direction')
     axis square
@@ -3494,6 +3561,7 @@ for w = 1:handles.Nwhiskers
 %     subplot(2,2,4), hold on
 %     plot(frames(idx),twist(idx),handles.lines{wmod})
     plot(twist(idx),elevation(idx),handles.colours{wmod})
+    plot(twist2(idx),elevation2(idx),handles.colours{wmod2})
     xlabel('twist'), ylabel('elevation')
     title('tangent direction')
     axis square
@@ -3883,9 +3951,7 @@ set(handles.edit_current_whisker_energy_threshold,'String', handles.whisker(hand
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function [frame] = load_and_plot_frames(video,framenum,roi,meanframe,titles,haxes)
-video.h
-framenum.h
-roi.h
+
 frame.h = load_frame(video.h,framenum.h,roi.h);%,get(handles.checkbox_rotatevview,'value'));
 frame.v = load_frame(video.v,framenum.v,roi.v);
 % set(handles.currentframe_display,'string',num2str(frameidx))
@@ -4985,7 +5051,10 @@ if exist('whisker','var')
 else
     % parameters will be those set up by prior call to initialise_new_track
 end
-clear trfile whisker
+
+%%%%%%%%%%original line 
+%clear trfile whisker
+clear whisker
 % initialise tracking parameters from the  tr file:
 if exist('trpmtrs','var')
     if ~isfield(trpmtrs,'tracking_direction')   % new in v4b2 050916
@@ -5002,7 +5071,10 @@ if exist('trpmtrs','var')
         set(handles.edit_snout_sigma,'String',handles.trpmtrs_snout_sigma);
     end
     set(handles.radiobutton_subtract_image_mean,'value',handles.trpmtrs.subtract_image_mean)
-    set(handles.pushbutton_tracking_direction,'String',handles.trpmtrs_tracking_direction);
+    
+    %%%%%in the original whikerMan4b2.m says
+    %%%%%handles.trpmtrs_tracking_direction 
+    set(handles.pushbutton_tracking_direction,'String',handles.trpmtrs.tracking_direction);
 end
 
 % initialise tracking variables:
@@ -5018,7 +5090,6 @@ for w = 1:handles.Nwhiskers
     handles.whisker(w).s0 = [];
 end
 clear w
-
 
 guidata(hObject, handles)
 
@@ -5047,11 +5118,13 @@ for w = 1:Nwhiskers
         plot(b2(1,:,1),b2(2,:,1),handles.lines{wmod})
         axes(handles.viewv)
         plot(b2(1,:,2),b2(2,:,2),handles.lines{wmod}),
+        hold on
     end
 end
 clear w wmod trframes fr r3 b3 b2
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % --- Executes during object creation, after setting all properties.
 function popupmenu_initialise_from_file_CreateFcn(hObject, eventdata, handles)
@@ -5306,3 +5379,175 @@ end
 
 set(hObject,'String',handles.trpmtrs.tracking_direction)
 guidata(hObject, handles)
+
+
+
+% --- Executes on selection change in popupmenu_Compare_tracking.
+function popupmenu_Compare_tracking_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenu_Compare_tracking (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu_Compare_tracking contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenu_Compare_tracking
+
+contents = cellstr(get(hObject,'String'));
+trfile = contents{get(hObject,'Value')};
+clear contents
+load(trfile,'whisker','roi','calib','trpmtrs','-mat')
+if isfield(handles,'ncompare')
+    handles.ncompare=handles.ncompare+1;
+    if handles.ncompare>6
+         handles.ncompare=1;
+    end
+else
+    handles.ncompare=1;
+end
+% Set ROI using the tr file:
+if exist('roi','var')
+    handles.roi = roi;
+    clear roi
+    % pmtrs that depend on roi need to be reset:
+%     handles.video.width.h = handles.roi.h(2)-handles.roi.h(1)+1;
+%     handles.video.width.v = handles.roi.v(2)-handles.roi.v(1)+1;
+%     handles.video.height.h = handles.roi.h(4)-handles.roi.h(3)+1;
+%     handles.video.height.v = handles.roi.v(4)-handles.roi.v(3)+1;
+    handles.meanframe = init_subtract_image_mean(get(handles.radiobutton_subtract_image_mean,'value'),handles.roi,handles.video);
+%     handles.whisker = translate_contours_to_new_roi(handles.whisker,handles.roi,roi_old);
+%     clear roi_old
+end
+
+% Set Calib using the tr file:
+if exist('calib','var')
+    handles.calib = calib;
+    clear calib
+    set(handles.pushbutton_fit_snakes,'enable','on') 
+end
+
+% load and plot the first frame:
+% titles.h = ''; titles.v = '';
+% handles.frame = load_and_plot_frame(handles.video,handles.currentframe,handles.roi,handles.meanframe,titles,handles);
+% clear titles
+% 
+% handles.frame.h = load_frame(handles.video.h,handles.currentframe.h,handles.roi.h);%,get(handles.checkbox_rotatevview,'value'));
+% handles.frame.v = load_frame(handles.video.v,handles.currentframe.v,handles.roi.v);
+% cla(handles.viewh,'reset')
+% cla(handles.viewv,'reset')
+% titles.h = num2str(handles.currentframe.h); titles.v = num2str(handles.currentframe.v);
+% haxes.h = handles.viewh;
+% haxes.v = handles.viewv;
+% plot_frames(handles.frame,handles.video,handles.meanframe,titles,haxes)
+% clear titles haxes
+
+
+% % Initialise whisker parameters from the tr file:
+% if exist('whisker','var')
+%     handles.Nwhiskers = length(whisker);
+%     for w = 1:handles.Nwhiskers
+%         handles.whisker(w).label = whisker(w).label;
+%         handles.whisker(w).energy_threshold = whisker(w).energy_threshold;
+%         handles.whisker(w).selected = whisker(w).selected;
+%     end
+%     set(handles.text_Nwhiskers,'String',handles.Nwhiskers)
+%     handles.current_whisker = 1;
+%     update_current_whisker_display(handles.current_whisker, handles);
+% else
+%     % parameters will be those set up by prior call to initialise_new_track
+% end
+
+% %%%%%%%%%%original line 
+% %clear trfile whisker
+% clear whisker
+% % initialise tracking parameters from the  tr file:
+% if exist('trpmtrs','var')
+%     if ~isfield(trpmtrs,'tracking_direction')   % new in v4b2 050916
+%         % for backwards compatibility with files that might lack this pmtr
+%         trpmtrs.tracking_direction = handles.trpmtrs.tracking_direction;
+%     end
+%     handles.trpmtrs = trpmtrs;
+%     clear trpmtrs
+%     set(handles.edit_sigma_prior,'String',handles.trpmtrs.sigma_prior);
+%     if isfield(handles,'trpmtrs_sigma2_prior')
+%         set(handles.edit_sigma2_prior,'String',handles.trpmtrs_sigma2_prior);
+%     end
+%     if isfield(handles,'trpmtrs_snout_sigma')
+%         set(handles.edit_snout_sigma,'String',handles.trpmtrs_snout_sigma);
+%     end
+%     set(handles.radiobutton_subtract_image_mean,'value',handles.trpmtrs.subtract_image_mean)
+%     
+%     %%%%%in the original whikerMan4b2.m says
+%     %%%%%handles.trpmtrs_tracking_direction 
+%     set(handles.pushbutton_tracking_direction,'String',handles.trpmtrs.tracking_direction);
+% end
+% 
+% % initialise tracking variables:
+% handles.n_control_pts = 3;
+% for w = 1:handles.Nwhiskers
+%     handles.whisker(w).tracked = zeros(1,handles.video.h.nframes);
+%     handles.whisker(w).r3all = zeros(handles.video.h.nframes,3,handles.n_control_pts);
+%     handles.whisker(w).fp3_all = zeros(handles.video.h.nframes,3);
+% %     handles.whisker(w).kappa_all = zeros(handles.video.nframes,2);
+% %     handles.whisker(w).theta_all = zeros(handles.video.nframes,2);
+%     handles.whisker(w).Emin = zeros(handles.video.h.nframes,1);
+%     handles.whisker(w).fpidx = zeros(handles.video.h.nframes,1);
+%     handles.whisker(w).s0 = [];
+% end
+% clear w
+%%%%%%%%%%%%%%%%%%%%%%%%insertar el plot aqui 
+load(trfile,'whisker','calib','-mat')
+if ~exist('whisker','var') | ~exist('calib','var')
+    return
+end
+Nwhiskers = length(whisker);
+
+for w = 1:Nwhiskers
+    %wmod = rem(w,Nwhiskers) + Nwhiskers*(w==Nwhiskers); % to avoid running out of colours
+    wmod = handles.ncompare; % to avoid running out of colours
+    trframes = find(whisker(w).tracked);
+    if numel(trframes)>20
+        trframes = round(linspace(trframes(1),trframes(end),20));
+    end
+    for fr = trframes
+        r3 = squeeze(whisker(w).r3all(fr,:,:));
+        b3 = bezierval(r3,0:.02:1);
+        b2 = projection2(b3,calib);
+        axes(handles.viewh)
+        plot(b2(1,:,1),b2(2,:,1),handles.lines{wmod})
+       
+        
+        axes(handles.viewv)
+        plot(b2(1,:,2),b2(2,:,2),handles.lines{wmod}),
+       
+    end
+    hold on
+   
+end
+ 
+guidata(hObject, handles)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu_Compare_tracking_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenu_Compare_tracking (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+ff = dir('*.tr4')
+nr_files=size(ff,1);
+string_list=cell(nr_files+1,1);
+string_list{1}='Compare Tracking';
+for i=1:nr_files
+    string_list{i+1}=ff(i).name;
+end
+set(hObject,'String',string_list);
+clear ff nr_files string_list i
+
